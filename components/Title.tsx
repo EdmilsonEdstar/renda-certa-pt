@@ -4,6 +4,6 @@ type TitleProps = {
 
 export function Title({title} : TitleProps){
     return(
-        <p className="text-cyan-50">{title}</p>
+        <div className="text-cyan-50">{title}</div>
     )
 }
