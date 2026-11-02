@@ -3,6 +3,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { MapPinned, Menu, X } from "lucide-react";
 
 const navigation = [
@@ -15,6 +17,12 @@ const navigation = [
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#1A5268] bg-[#06111F]/95 backdrop-blur-md">
@@ -45,21 +53,47 @@ export default function Header() {
           aria-label="Navegação principal"
           className="hidden items-center gap-6 md:flex"
         >
-          {navigation.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="text-sm font-medium text-[#9BB2C5] transition-colors hover:text-[#24D9E8]"
-            >
-              {item.label}
-            </Link>
-          ))}
+          {navigation.map((item) => {
+            const active = isActive(item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`relative py-2 text-sm font-medium transition-colors duration-200 ${
+                  active
+                    ? "text-[#24D9E8]"
+                    : "text-[#9BB2C5] hover:text-[#24D9E8]"
+                }`}
+              >
+                {item.label}
+
+                {active && (
+                  <motion.span
+                    layoutId="header-active-indicator"
+                    className="absolute -bottom-0.5 left-0 h-0.5 w-full rounded-full bg-[#24D9E8]"
+                    transition={{
+                      type: "spring",
+                      stiffness: 380,
+                      damping: 30,
+                    }}
+                  />
+                )}
+              </Link>
+            );
+          })}
         </nav>
 
         {/* Botão desktop */}
         <Link
           href="/mapa"
-          className="hidden rounded-lg bg-[#24D9E8] px-5 py-2.5 text-sm font-semibold text-[#06111F] transition-colors hover:bg-[#18BDCC] md:inline-flex"
+          aria-current={pathname.startsWith("/mapa") ? "page" : undefined}
+          className={`hidden rounded-lg px-5 py-2.5 text-sm font-semibold transition-all duration-200 md:inline-flex ${
+            pathname.startsWith("/mapa")
+              ? "bg-[#18BDCC] text-[#06111F] ring-2 ring-[#24D9E8]/40"
+              : "bg-[#24D9E8] text-[#06111F] hover:bg-[#18BDCC]"
+          }`}
         >
           Começar
         </Link>
@@ -84,22 +118,36 @@ export default function Header() {
           aria-label="Navegação mobile"
           className="border-t border-[#1A5268] bg-[#0B1D30] px-4 py-4 md:hidden"
         >
-          <div className="flex flex-col gap-4">
-            {navigation.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMenuOpen(false)}
-                className="text-sm font-medium text-[#9BB2C5] transition-colors hover:text-[#24D9E8]"
-              >
-                {item.label}
-              </Link>
-            ))}
+          <div className="flex flex-col gap-2">
+            {navigation.map((item) => {
+              const active = isActive(item.href);
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMenuOpen(false)}
+                  aria-current={active ? "page" : undefined}
+                  className={`rounded-lg border px-3 py-3 text-sm font-medium transition-colors duration-200 ${
+                    active
+                      ? "border-[#24D9E8]/40 bg-[#24D9E8]/10 text-[#24D9E8]"
+                      : "border-transparent text-[#9BB2C5] hover:bg-[#123449] hover:text-[#24D9E8]"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
 
             <Link
               href="/mapa"
               onClick={() => setMenuOpen(false)}
-              className="mt-2 rounded-lg bg-[#24D9E8] px-5 py-3 text-center text-sm font-semibold text-[#06111F] transition-colors hover:bg-[#18BDCC]"
+              aria-current={pathname.startsWith("/mapa") ? "page" : undefined}
+              className={`mt-2 rounded-lg px-5 py-3 text-center text-sm font-semibold transition-colors ${
+                pathname.startsWith("/mapa")
+                  ? "bg-[#18BDCC] text-[#06111F] ring-2 ring-[#24D9E8]/40"
+                  : "bg-[#24D9E8] text-[#06111F] hover:bg-[#18BDCC]"
+              }`}
             >
               Começar
             </Link>

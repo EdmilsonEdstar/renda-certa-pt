@@ -1,5 +1,6 @@
 
 import Link from "next/link";
+
 import AppShell from "@/components/layout/AppShell";
 import Card from "@/components/ui/Card";
 
@@ -38,7 +39,6 @@ export default function ComoFuncionaPage() {
   return (
     <AppShell>
       <div className="py-12 md:py-20">
-
         {/* Hero */}
         <section className="grid items-center gap-10 lg:grid-cols-2">
           <div>
@@ -86,9 +86,7 @@ export default function ComoFuncionaPage() {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold">
-                        {step.title}
-                      </p>
+                      <p className="font-semibold">{step.title}</p>
 
                       <p className="mt-1 text-xs text-muted-foreground">
                         {step.detail}
@@ -120,9 +118,9 @@ export default function ComoFuncionaPage() {
 
           <div className="mt-10 grid gap-5 md:grid-cols-2">
             {steps.map((step) => (
-              <div
+              <Card
                 key={step.number}
-                className="group rounded-2xl border border-border bg-surface p-7 transition-all duration-300 hover:-translate-y-1 hover:border-primary/50"
+                className="group rounded-2xl border-border bg-surface p-7 transition-all duration-300 hover:-translate-y-1 hover:border-primary/50"
               >
                 <span className="text-4xl font-bold text-primary/40">
                   {step.number}
@@ -135,7 +133,7 @@ export default function ComoFuncionaPage() {
                 <p className="mt-3 leading-7 text-muted-foreground">
                   {step.description}
                 </p>
-              </div>
+              </Card>
             ))}
           </div>
         </section>

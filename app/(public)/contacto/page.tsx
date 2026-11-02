@@ -1,6 +1,7 @@
 
 import Link from "next/link";
 import AppShell from "@/components/layout/AppShell";
+import Card from "@/components/ui/Card";
 
 const email = "edmilsonantoniooficial@gmail.com";
 
@@ -8,7 +9,6 @@ export default function ContactoPage() {
   return (
     <AppShell>
       <div className="py-16 md:py-24">
-
         {/* Introdução centrada */}
         <section className="mx-auto max-w-3xl py-10 text-center md:py-16">
           <span className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-primary">
@@ -27,7 +27,7 @@ export default function ContactoPage() {
 
         {/* Contacto principal */}
         <section className="mx-auto max-w-3xl">
-          <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-surface px-6 py-10 text-center md:px-12 md:py-14">
+          <Card className="relative overflow-hidden rounded-3xl border-primary/20 bg-surface px-6 py-10 text-center md:px-12 md:py-14">
             <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
             <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-primary/5 blur-3xl" />
 
@@ -70,7 +70,7 @@ export default function ContactoPage() {
                 já preenchido.
               </p>
             </div>
-          </div>
+          </Card>
         </section>
 
         {/* Motivos de contacto */}
@@ -89,9 +89,11 @@ export default function ContactoPage() {
               <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-lg text-primary">
                 ✦
               </div>
+
               <h3 className="mt-4 font-semibold">
                 Sugestões
               </h3>
+
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Partilha ideias e funcionalidades que gostarias de ver
                 na plataforma.
@@ -102,9 +104,11 @@ export default function ContactoPage() {
               <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-lg text-primary">
                 ⌕
               </div>
+
               <h3 className="mt-4 font-semibold">
                 Correções
               </h3>
+
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Comunica erros ou informações que consideres
                 necessário rever.
@@ -115,9 +119,11 @@ export default function ContactoPage() {
               <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-lg text-primary">
                 ♡
               </div>
+
               <h3 className="mt-4 font-semibold">
                 Colaboração
               </h3>
+
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Contacta-nos para questões ou oportunidades de colaboração.
               </p>
