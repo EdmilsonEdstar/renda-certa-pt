@@ -1,7 +1,17 @@
-export default function Page() {
-    return (
-      <main className="p-6">
-        <h1 className="text-2xl font-bold">Página em Construção</h1>
-      </main>
-    );
-  }
+
+import type { ReactNode } from "react";
+
+interface CardProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export default function Card({ children, className = "" }: CardProps) {
+  return (
+    <div
+      className={`rounded-xl border border-border bg-card p-5 shadow-sm ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
