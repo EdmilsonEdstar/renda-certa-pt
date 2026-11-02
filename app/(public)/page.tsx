@@ -1,4 +1,3 @@
-import { SideBar } from "@/components/SideBar";
 import { Sparkles } from "lucide-react";
 
 export default function Home() {
@@ -8,7 +7,6 @@ export default function Home() {
         <Sparkles className="w-6 h-6 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]"/>
         Renda Certa PT
       </h3>
-        <SideBar/>
     </div>
   );
 }

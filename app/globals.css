@@ -1,6 +1,36 @@
-@import "tailwindcss";
+
+:root {
+  --background: 214 68% 7%;
+  --surface: 211 63% 12%;
+  --surface-raised: 208 58% 15%;
+  --border: 197 60% 25%;
+  --primary: 185 81% 53%;
+  --foreground: 203 64% 95%;
+  --muted: 207 27% 69%;
+  --success: 152 68% 57%;
+  --warning: 43 100% 65%;
+  --danger: 357 100% 71%;
+}
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-surface: hsl(var(--surface));
+  --color-surface-raised: hsl(var(--surface-raised));
+  --color-border: hsl(var(--border));
+  --color-primary: hsl(var(--primary));
+  --color-foreground: hsl(var(--foreground));
+  --color-muted: hsl(var(--muted));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-danger: hsl(var(--danger));
+
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+}
+
 body {
-  background:#020b14;
-  color: #fff;
-  font-family: Arial, Helvetica, sans-serif;
+  @apply bg-background text-foreground font-sans antialiased;
 }
