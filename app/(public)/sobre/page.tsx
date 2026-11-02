@@ -1,156 +1,239 @@
 
 import Link from "next/link";
 import AppShell from "@/components/layout/AppShell";
+import Card from "@/components/ui/Card";
+
+const objectives = [
+  {
+    number: "01",
+    title: "Explorar",
+    description:
+      "Consultar informação sobre a acessibilidade ao arrendamento nos municípios portugueses.",
+  },
+  {
+    number: "02",
+    title: "Simular",
+    description:
+      "Explorar cenários com diferentes rendimentos, agregados familiares e tipologias.",
+  },
+  {
+    number: "03",
+    title: "Comparar",
+    description:
+      "Analisar diferenças territoriais através de indicadores apresentados de forma consistente.",
+  },
+  {
+    number: "04",
+    title: "Compreender",
+    description:
+      "Conhecer as fontes, os indicadores e a metodologia utilizados na plataforma.",
+  },
+];
 
 export default function SobrePage() {
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1200px] px-6 py-16 md:px-12 md:py-24">
+      <div className="py-12 md:py-20">
 
-        {/* Cabeçalho */}
-        <section className="mb-16 max-w-3xl">
-          <p className="mb-4 text-sm font-semibold uppercase tracking-wider text-primary">
-            Sobre o projeto
-          </p>
+        {/* Introdução e missão */}
+        <section className="relative overflow-hidden rounded-3xl border border-primary/20 bg-surface px-7 py-12 md:px-12 md:py-16">
+          <div className="absolute -right-20 -top-20 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
 
-          <h1 className="text-4xl font-bold leading-tight text-white md:text-5xl">
-            Compreender a acessibilidade ao arrendamento em Portugal
-          </h1>
+          <div className="relative max-w-4xl">
+            <span className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-primary">
+              Sobre o projeto
+            </span>
 
-          <p className="mt-6 text-lg leading-relaxed text-white/70">
-            O PT Rental Map é uma plataforma de análise territorial que
-            procura tornar mais acessível a compreensão dos desafios
-            associados ao arrendamento habitacional em Portugal.
-          </p>
+            <h1 className="mt-7 text-4xl font-bold tracking-tight md:text-6xl animate-fade-up">
+              Compreender a habitação através dos dados.
+            </h1>
+
+            <p className="mt-7 max-w-3xl text-base leading-8 text-muted-foreground md:text-lg animate-fade-up [animation-delay:200ms]">
+              O PT Rental Map é uma plataforma dedicada à análise da
+              acessibilidade ao arrendamento em Portugal, que procura
+              transformar informação territorial e habitacional em
+              conhecimento mais claro e acessível.
+            </p>
+
+            <div className="mt-10 flex flex-wrap gap-4 animate-fade-up [animation-delay:400ms]">
+              <Link
+                href="/como-funciona"
+                className="rounded-lg bg-primary px-6 py-3.5 text-sm font-semibold text-background transition-all hover:opacity-90"
+              >
+                Conhecer a plataforma
+              </Link>
+
+              <Link
+                href="/mapa"
+                className="rounded-lg border border-border px-6 py-3.5 text-sm font-semibold transition-colors hover:bg-surface-raised"
+              >
+                Explorar o mapa
+              </Link>
+            </div>
+          </div>
         </section>
 
-        {/* Missão */}
-        <section className="mb-12 grid gap-8 md:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-surface p-8">
-            <h2 className="mb-4 text-xl font-semibold text-primary">
-              A nossa missão
+        {/* Problema e abordagem */}
+        <section className="mt-20 grid gap-12 lg:grid-cols-2 lg:gap-16">
+          <div>
+            <span className="text-sm font-semibold uppercase tracking-wider text-primary">
+              O contexto
+            </span>
+
+            <h2 className="mt-4 text-3xl font-bold tracking-tight">
+              Um problema que merece ser compreendido.
             </h2>
 
-            <p className="leading-relaxed text-white/70">
-              Disponibilizar uma ferramenta que permita explorar e
-              compreender as diferenças territoriais na acessibilidade
-              ao arrendamento, relacionando indicadores habitacionais
-              com o rendimento dos agregados familiares.
+            <p className="mt-5 leading-8 text-muted-foreground">
+              A informação sobre habitação, rendimentos e território
+              encontra-se frequentemente dispersa por diferentes fontes.
+              Esta dispersão pode dificultar a comparação entre municípios
+              e a compreensão das diferenças de acessibilidade ao
+              arrendamento.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-surface p-8">
-            <h2 className="mb-4 text-xl font-semibold text-primary">
-              O problema que procuramos compreender
+          <div className="border-l-2 border-primary/40 pl-7">
+            <span className="text-sm font-semibold uppercase tracking-wider text-primary">
+              A nossa abordagem
+            </span>
+
+            <h2 className="mt-4 text-3xl font-bold tracking-tight">
+              Tornar os dados mais claros e úteis.
             </h2>
 
-            <p className="leading-relaxed text-white/70">
-              O acesso à habitação apresenta desafios diferentes
-              consoante o território e a capacidade económica de cada
-              agregado. O projeto procura facilitar a análise dessas
-              diferenças através de informação organizada e visual.
+            <p className="mt-5 leading-8 text-muted-foreground">
+              A plataforma pretende reunir indicadores e ferramentas de
+              exploração territorial, permitindo analisar cenários e
+              comparar municípios de uma forma visual, acessível e
+              estruturada.
             </p>
           </div>
         </section>
 
         {/* Objetivos */}
-        <section className="mb-16">
-          <h2 className="mb-8 text-2xl font-bold text-white md:text-3xl">
-            Objetivos do projeto
-          </h2>
+        <section className="mt-24">
+          <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+            <div>
+              <span className="text-sm font-semibold uppercase tracking-wider text-primary">
+                O que nos orienta
+              </span>
 
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="rounded-xl border border-white/10 bg-surface p-6">
-              <h3 className="mb-3 font-semibold text-primary">
-                Explorar o território
-              </h3>
-              <p className="text-sm leading-relaxed text-white/70">
-                Permitir a análise dos municípios portugueses através
-                de uma representação geográfica interativa.
-              </p>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+                Os objetivos do projeto.
+              </h2>
             </div>
 
-            <div className="rounded-xl border border-white/10 bg-surface p-6">
-              <h3 className="mb-3 font-semibold text-primary">
-                Relacionar rendimento e habitação
-              </h3>
-              <p className="text-sm leading-relaxed text-white/70">
-                Facilitar a compreensão da relação entre os rendimentos
-                dos agregados e os indicadores de arrendamento.
-              </p>
-            </div>
+            <p className="max-w-md leading-7 text-muted-foreground">
+              Quatro dimensões que orientam a experiência e o desenvolvimento
+              do PT Rental Map.
+            </p>
+          </div>
 
-            <div className="rounded-xl border border-white/10 bg-surface p-6">
-              <h3 className="mb-3 font-semibold text-primary">
-                Promover transparência
-              </h3>
-              <p className="text-sm leading-relaxed text-white/70">
-                Identificar as fontes, datas de referência e
-                metodologias utilizadas nos indicadores.
-              </p>
-            </div>
+          <div className="mt-9 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {objectives.map((item) => (
+              <div
+                key={item.number}
+                className="group border-t border-border py-6 transition-colors duration-300 hover:border-primary"
+              >
+                <span className="text-3xl font-bold text-primary/50">
+                  {item.number}
+                </span>
+
+                <h3 className="mt-6 text-xl font-semibold">
+                  {item.title}
+                </h3>
+
+                <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                  {item.description}
+                </p>
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* Âmbito */}
-        <section className="mb-16 rounded-2xl border border-white/10 bg-surface p-8 md:p-10">
-          <h2 className="mb-4 text-2xl font-bold text-white">
-            Âmbito e utilização
-          </h2>
+        {/* Âmbito e responsabilidade */}
+        <section className="mt-24">
+          <Card className="p-7 md:p-10">
+            <div className="grid gap-8 md:grid-cols-[0.7fr_1.3fr]">
+              <div>
+                <span className="text-sm font-semibold uppercase tracking-wider text-primary">
+                  Transparência
+                </span>
 
-          <p className="leading-relaxed text-white/70">
-            O PT Rental Map destina-se à exploração e análise de
-            indicadores territoriais relacionados com a habitação
-            e o arrendamento. As simulações são ferramentas
-            exploratórias e não constituem aconselhamento financeiro,
-            avaliação de crédito ou garantia de disponibilidade
-            de imóveis.
-          </p>
+                <h2 className="mt-4 text-2xl font-bold">
+                  Âmbito e responsabilidade.
+                </h2>
+              </div>
+
+              <div>
+                <p className="leading-8 text-muted-foreground">
+                  O PT Rental Map é um projeto de análise e visualização
+                  de dados. Não é um portal de anúncios imobiliários,
+                  não garante a disponibilidade de imóveis e não constitui
+                  uma avaliação de crédito nem aconselhamento financeiro
+                  ou jurídico.
+                </p>
+
+                <p className="mt-5 leading-8 text-muted-foreground">
+                  Os resultados dependem da qualidade, cobertura temporal
+                  e disponibilidade das fontes de informação utilizadas.
+                  Por isso, a origem e a data dos indicadores são elementos
+                  fundamentais para interpretar os resultados.
+                </p>
+
+                <Link
+                  href="/dados"
+                  className="mt-6 inline-flex text-sm font-semibold text-primary transition-colors hover:opacity-80"
+                >
+                  Consultar fontes e metodologia
+                </Link>
+              </div>
+            </div>
+          </Card>
         </section>
 
         {/* Criador */}
-        <section className="rounded-2xl border border-primary/20 bg-primary/5 p-8 md:p-10">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-primary">
-            Criador do projeto
-          </p>
+        <section className="mt-24 grid gap-8 md:grid-cols-[0.8fr_1.2fr] md:items-center">
+          <div className="relative flex min-h-64 items-center justify-center overflow-hidden rounded-3xl border border-border bg-surface">
+            <div className="absolute h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
 
-          <h2 className="text-2xl font-bold text-white md:text-3xl">
-            Edmilson António
-          </h2>
+            <div className="relative text-center">
+              <span className="text-5xl font-bold tracking-tight text-primary">
+                EA
+              </span>
+              <p className="mt-3 text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                Criador do projeto
+              </p>
+            </div>
+          </div>
 
-          <p className="mt-4 max-w-2xl leading-relaxed text-white/70">
-            O PT Rental Map é um projeto desenvolvido por Edmilson
-            António, com o objetivo de explorar a utilização de dados
-            territoriais e ferramentas digitais na compreensão dos
-            desafios da habitação em Portugal.
-          </p>
+          <div>
+            <span className="text-sm font-semibold uppercase tracking-wider text-primary">
+              Quem está por detrás
+            </span>
 
-          <a
-            href="https://edmilsonportfolio.vercel.app/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-6 inline-flex items-center rounded-lg bg-primary px-6 py-3 font-semibold text-background transition hover:brightness-110"
-          >
-            Visitar o meu portfólio ↗
-          </a>
+            <h2 className="mt-4 text-3xl font-bold tracking-tight">
+              Edmilson António.
+            </h2>
+
+            <p className="mt-5 leading-8 text-muted-foreground">
+              O PT Rental Map é desenvolvido por Edmilson António como
+              um projeto de exploração e visualização de dados, com foco
+              na habitação e na realidade territorial portuguesa.
+            </p>
+
+            <a
+              href="https://edmilsonportfolio.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-primary transition-colors hover:opacity-80"
+            >
+              Conhecer o meu portefólio
+              <span aria-hidden="true">↗</span>
+            </a>
+          </div>
         </section>
-
-        {/* Navegação */}
-        <div className="mt-12 flex flex-wrap gap-4">
-          <Link
-            href="/como-funciona"
-            className="rounded-lg bg-primary px-6 py-3 font-semibold text-background transition hover:brightness-110"
-          >
-            Como funciona
-          </Link>
-
-          <Link
-            href="/"
-            className="rounded-lg border border-white/20 px-6 py-3 font-semibold text-white transition hover:bg-white/5"
-          >
-            Voltar ao início
-          </Link>
-        </div>
 
       </div>
     </AppShell>
