@@ -45,3 +45,18 @@ body {
   min-height: 100vh;
   @apply bg-background text-foreground font-sans antialiased;
 }
+
+/* Animação de zoom da fotografia de Lisboa */
+@keyframes slow-zoom {
+  from {
+    transform: scale(1);
+  }
+
+  to {
+    transform: scale(1.15);
+  }
+}
+
+.animate-slow-zoom {
+  animation: slow-zoom 5s ease-in-out infinite alternate;
+}

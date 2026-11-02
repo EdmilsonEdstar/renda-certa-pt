@@ -31,7 +31,7 @@ export default function HomePage() {
       <section className="relative isolate left-1/2 -ml-[50vw] w-screen overflow-hidden">
         {/* Fotografia de Lisboa */}
         <div
-          className="absolute inset-0 -z-20 bg-cover bg-center"
+          className="absolute inset-0 -z-20 bg-cover bg-center animate-slow-zoom"
           style={{
             backgroundImage: "url('/images/lisbon-hero.png')",
           }}
