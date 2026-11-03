@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Dados geográficos originais CAOP
+data/caop/**/*.gpkg
+data/caop/**/*.zip

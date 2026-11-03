@@ -1,7 +1,13 @@
-
 "use client";
 
 import dynamic from "next/dynamic";
+import type { MunicipalityProperties } from "./PortugalMap";
+
+type PortugalMapLoaderProps = {
+  onMunicipalitySelect?: (
+    municipality: MunicipalityProperties
+  ) => void;
+};
 
 const PortugalMap = dynamic(
   () => import("./PortugalMap"),
@@ -17,6 +23,12 @@ const PortugalMap = dynamic(
   }
 );
 
-export default function PortugalMapLoader() {
-  return <PortugalMap />;
+export default function PortugalMapLoader({
+  onMunicipalitySelect,
+}: PortugalMapLoaderProps) {
+  return (
+    <PortugalMap
+      onMunicipalitySelect={onMunicipalitySelect}
+    />
+  );
 }

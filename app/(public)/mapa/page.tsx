@@ -4,12 +4,17 @@
 import { useState } from "react";
 import AppShell from "@/components/layout/AppShell";
 import PortugalMapLoader from "@/components/map/PortugalMapLoader";
+import type { MunicipalityProperties } from "@/components/map/PortugalMap";
 import {
   Search,
   Map as MapIcon,
   Satellite,
   SlidersHorizontal,
   RotateCcw,
+  X,
+  MapPin,
+  Ruler,
+  Building2,
 } from "lucide-react";
 
 export default function MapaPage() {
@@ -20,6 +25,8 @@ export default function MapaPage() {
   const [mapMode, setMapMode] = useState("map");
   const [search, setSearch] = useState("");
   const [applied, setApplied] = useState(false);
+  const [selectedMunicipality, setSelectedMunicipality] =
+    useState<MunicipalityProperties | null>(null);
 
   function clearFilters() {
     setHousehold("3");
@@ -28,6 +35,7 @@ export default function MapaPage() {
     setEffort(35);
     setSearch("");
     setApplied(false);
+    setSelectedMunicipality(null);
   }
 
   return (
@@ -37,7 +45,6 @@ export default function MapaPage() {
 
           {/* PAINEL LATERAL */}
           <aside className="relative z-10 border-b border-[#1A5268] bg-[#071725] p-3 lg:min-h-[calc(100dvh-76px)] lg:border-b-0 lg:border-r">
-
             <div className="mb-4 px-1">
               <h2 className="text-base font-bold tracking-tight text-[#E8F3FA]">
                 Define o teu perfil
@@ -132,7 +139,9 @@ export default function MapaPage() {
                   min="0"
                   max="5000"
                   value={income}
-                  onChange={(event) => setIncome(Number(event.target.value))}
+                  onChange={(event) =>
+                    setIncome(Math.max(0, Number(event.target.value)))
+                  }
                   className="w-full bg-transparent text-lg font-semibold outline-none"
                 />
               </div>
@@ -142,7 +151,7 @@ export default function MapaPage() {
                 min="500"
                 max="5000"
                 step="50"
-                value={income}
+                value={Math.min(5000, Math.max(500, income))}
                 onChange={(event) => setIncome(Number(event.target.value))}
                 className="mt-4 w-full accent-[#24D9E8]"
               />
@@ -232,7 +241,8 @@ export default function MapaPage() {
 
             {applied && (
               <p className="mt-2 text-center text-[11px] text-[#48DC98]">
-                Perfil aplicado. A ligação aos dados municipais será integrada na próxima etapa.
+                Perfil aplicado. Os indicadores municipais serão apresentados
+                quando a integração dos dados estiver concluída.
               </p>
             )}
           </aside>
@@ -282,7 +292,9 @@ export default function MapaPage() {
 
             {/* MAPA */}
             <div className="absolute inset-0">
-              <PortugalMapLoader />
+              <PortugalMapLoader
+                onMunicipalitySelect={setSelectedMunicipality}
+              />
             </div>
 
             {/* LEGENDA */}
@@ -311,9 +323,87 @@ export default function MapaPage() {
               </div>
             </div>
 
+            {/* PAINEL DO MUNICÍPIO SELECIONADO */}
+            {selectedMunicipality && (
+              <div className="absolute bottom-16 left-3 right-3 z-[600] max-h-[55%] overflow-y-auto rounded-xl border border-[#1A5268] bg-[#0B1D30]/95 p-4 shadow-2xl backdrop-blur sm:bottom-16 sm:left-auto sm:right-4 sm:w-80">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="mb-2 flex items-center gap-2 text-[#24D9E8]">
+                      <MapPin className="h-4 w-4" />
+                      <span className="text-[10px] font-semibold uppercase tracking-wider">
+                        Município selecionado
+                      </span>
+                    </div>
+                    <h2 className="text-lg font-bold text-[#E8F3FA]">
+                      {selectedMunicipality.nome}
+                    </h2>
+                    <p className="mt-1 text-xs text-[#9BB2C5]">
+                      {selectedMunicipality.distrito_ilha}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedMunicipality(null)}
+                    aria-label="Fechar informação do município"
+                    className="rounded-lg p-2 text-[#9BB2C5] transition hover:bg-[#10283D] hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-[#1A5268] bg-[#10283D] p-3">
+                    <div className="mb-1 flex items-center gap-2 text-[#9BB2C5]">
+                      <MapPin className="h-3.5 w-3.5" />
+                      <span className="text-[10px]">Código do município</span>
+                    </div>
+                    <p className="text-sm font-semibold">
+                      {selectedMunicipality.codigo}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-[#1A5268] bg-[#10283D] p-3">
+                    <div className="mb-1 flex items-center gap-2 text-[#9BB2C5]">
+                      <Building2 className="h-3.5 w-3.5" />
+                      <span className="text-[10px]">Região NUTS III</span>
+                    </div>
+                    <p className="text-sm font-semibold">
+                      {selectedMunicipality.nuts3 || "Não disponível"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-[#1A5268] bg-[#10283D] p-3">
+                    <div className="mb-1 flex items-center gap-2 text-[#9BB2C5]">
+                      <Ruler className="h-3.5 w-3.5" />
+                      <span className="text-[10px]">Área do município</span>
+                    </div>
+                    <p className="text-sm font-semibold">
+                      {Number(selectedMunicipality.area_ha).toLocaleString(
+                        "pt-PT",
+                        { maximumFractionDigits: 2 }
+                      )}{" "}
+                      ha
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-lg border border-dashed border-[#1A5268] p-3">
+                  <p className="text-xs font-semibold text-[#24D9E8]">
+                    Indicadores de habitação
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-[#9BB2C5]">
+                    Os indicadores de renda, acessibilidade e taxa de esforço
+                    deste município serão apresentados após a integração das
+                    respetivas fontes de dados.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* INFORMAÇÃO DO PERFIL */}
             <div className="absolute bottom-4 left-4 z-[500] rounded-lg border border-[#1A5268] bg-[#0B1D30]/95 px-3 py-2 text-[10px] text-[#9BB2C5] shadow-lg backdrop-blur">
-              Perfil: {household} pessoas · €{income.toLocaleString("pt-PT")} · {typology}
+              Perfil: {household} pessoas · €
+              {income.toLocaleString("pt-PT")} · {typology}
             </div>
           </main>
         </div>
