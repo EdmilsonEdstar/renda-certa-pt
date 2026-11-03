@@ -5,6 +5,7 @@ import { useState } from "react";
 import AppShell from "@/components/layout/AppShell";
 import PortugalMapLoader from "@/components/map/PortugalMapLoader";
 import type { MunicipalityProperties } from "@/components/map/PortugalMap";
+
 import {
   Search,
   Map as MapIcon,
@@ -17,6 +18,67 @@ import {
   Building2,
 } from "lucide-react";
 
+import {
+  calculateEffortRate,
+  classifyEffort,
+  calculateRemainingAfterRent,
+} from "@/lib/calculations/effort";
+
+import type { EffortStatus } from "@/lib/calculations/effort";
+
+function formatCurrency(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat("pt-PT", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+type StatusInfo = {
+  label: string;
+  description: string;
+  color: string;
+  background: string;
+  border: string;
+};
+
+const STATUS_INFO: Record<EffortStatus, StatusInfo> = {
+  good: {
+    label: "Boa acessibilidade",
+    description: "A renda representa até 25% do rendimento.",
+    color: "text-[#48DC98]",
+    background: "bg-[#48DC98]/10",
+    border: "border-[#48DC98]/30",
+  },
+  moderate: {
+    label: "Acessibilidade moderada",
+    description:
+      "A renda representa mais de 25% e até 35% do rendimento.",
+    color: "text-[#FFCD4B]",
+    background: "bg-[#FFCD4B]/10",
+    border: "border-[#FFCD4B]/30",
+  },
+  low: {
+    label: "Baixa acessibilidade",
+    description: "A renda representa mais de 35% do rendimento.",
+    color: "text-[#FF6970]",
+    background: "bg-[#FF6970]/10",
+    border: "border-[#FF6970]/30",
+  },
+  missing: {
+    label: "Sem dados",
+    description:
+      "Introduz uma renda válida e um rendimento positivo.",
+    color: "text-[#9BB2C5]",
+    background: "bg-[#9BB2C5]/10",
+    border: "border-[#9BB2C5]/30",
+  },
+};
+
 export default function MapaPage() {
   const [household, setHousehold] = useState("3");
   const [income, setIncome] = useState(1800);
@@ -25,8 +87,38 @@ export default function MapaPage() {
   const [mapMode, setMapMode] = useState("map");
   const [search, setSearch] = useState("");
   const [applied, setApplied] = useState(false);
+
   const [selectedMunicipality, setSelectedMunicipality] =
     useState<MunicipalityProperties | null>(null);
+
+  const [monthlyRent, setMonthlyRent] = useState("");
+
+  const rentValue =
+    monthlyRent.trim() === "" ? null : Number(monthlyRent);
+
+  const effortRate = calculateEffortRate(rentValue, income);
+
+  const remainingAfterRent = calculateRemainingAfterRent(
+    rentValue,
+    income
+  );
+
+  // Tipagem explícita para garantir uma chave válida em STATUS_INFO.
+  const effortStatus: EffortStatus = classifyEffort(effortRate);
+
+  const statusInfo = STATUS_INFO[effortStatus];
+
+  function handleMunicipalitySelect(
+    municipality: MunicipalityProperties
+  ) {
+    setSelectedMunicipality(municipality);
+    setMonthlyRent("");
+  }
+
+  function closeMunicipalityPanel() {
+    setSelectedMunicipality(null);
+    setMonthlyRent("");
+  }
 
   function clearFilters() {
     setHousehold("3");
@@ -36,6 +128,7 @@ export default function MapaPage() {
     setSearch("");
     setApplied(false);
     setSelectedMunicipality(null);
+    setMonthlyRent("");
   }
 
   return (
@@ -44,17 +137,21 @@ export default function MapaPage() {
         <div className="grid min-h-[calc(100dvh-76px)] grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)]">
 
           {/* PAINEL LATERAL */}
+
           <aside className="relative z-10 border-b border-[#1A5268] bg-[#071725] p-3 lg:min-h-[calc(100dvh-76px)] lg:border-b-0 lg:border-r">
+
             <div className="mb-4 px-1">
               <h2 className="text-base font-bold tracking-tight text-[#E8F3FA]">
                 Define o teu perfil
               </h2>
+
               <p className="mt-1 text-xs leading-relaxed text-[#9BB2C5]">
                 Preenche os teus dados para explorar a acessibilidade habitacional nos municípios portugueses.
               </p>
             </div>
 
             {/* AGREGADO FAMILIAR */}
+
             <section className="rounded-xl border border-[#1A5268] bg-[#0B1D30] p-3">
               <h2 className="mb-3 text-xs font-semibold">
                 Tamanho do agregado familiar
@@ -119,25 +216,32 @@ export default function MapaPage() {
                       )}
                     </svg>
 
-                    <span className="text-xs font-semibold">{value}</span>
+                    <span className="text-xs font-semibold">
+                      {value}
+                    </span>
                   </button>
                 ))}
               </div>
             </section>
 
             {/* RENDIMENTO */}
+
             <section className="mt-3 rounded-xl border border-[#1A5268] bg-[#0B1D30] p-3">
               <label htmlFor="income" className="text-xs font-semibold">
                 Rendimento líquido mensal
               </label>
 
               <div className="mt-2 flex items-center gap-2 border-b border-[#1A5268] pb-2">
-                <span className="text-lg font-semibold text-[#24D9E8]">€</span>
+                <span className="text-lg font-semibold text-[#24D9E8]">
+                  €
+                </span>
+
                 <input
                   id="income"
                   type="number"
                   min="0"
                   max="5000"
+                  step="0.01"
                   value={income}
                   onChange={(event) =>
                     setIncome(Math.max(0, Number(event.target.value)))
@@ -152,7 +256,9 @@ export default function MapaPage() {
                 max="5000"
                 step="50"
                 value={Math.min(5000, Math.max(500, income))}
-                onChange={(event) => setIncome(Number(event.target.value))}
+                onChange={(event) =>
+                  setIncome(Number(event.target.value))
+                }
                 className="mt-4 w-full accent-[#24D9E8]"
               />
 
@@ -163,6 +269,7 @@ export default function MapaPage() {
             </section>
 
             {/* TIPOLOGIA */}
+
             <section className="mt-3 rounded-xl border border-[#1A5268] bg-[#0B1D30] p-3">
               <h2 className="mb-3 text-xs font-semibold">
                 Tipologia de habitação
@@ -186,9 +293,11 @@ export default function MapaPage() {
             </section>
 
             {/* FILTROS ADICIONAIS */}
+
             <section className="mt-3 rounded-xl border border-[#1A5268] bg-[#0B1D30] p-3">
               <div className="mb-3 flex items-center gap-2">
                 <SlidersHorizontal className="h-4 w-4 text-[#24D9E8]" />
+
                 <h2 className="text-xs font-semibold">
                   Filtros adicionais
                 </h2>
@@ -205,7 +314,9 @@ export default function MapaPage() {
                 max="50"
                 step="5"
                 value={effort}
-                onChange={(event) => setEffort(Number(event.target.value))}
+                onChange={(event) =>
+                  setEffort(Number(event.target.value))
+                }
                 className="mt-3 w-full accent-[#24D9E8]"
               />
 
@@ -222,6 +333,7 @@ export default function MapaPage() {
             </section>
 
             {/* AÇÕES */}
+
             <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
               <button
                 onClick={() => setApplied(true)}
@@ -241,16 +353,18 @@ export default function MapaPage() {
 
             {applied && (
               <p className="mt-2 text-center text-[11px] text-[#48DC98]">
-                Perfil aplicado. Os indicadores municipais serão apresentados
-                quando a integração dos dados estiver concluída.
+                Perfil aplicado. O rendimento definido será utilizado nos cálculos.
               </p>
             )}
+
           </aside>
 
           {/* ÁREA DO MAPA */}
+
           <main className="relative h-[65svh] min-h-[440px] bg-[#06111F] sm:h-[70svh] lg:h-[calc(100dvh-76px)] lg:min-h-[600px]">
 
             {/* BARRA SUPERIOR */}
+
             <div className="absolute left-2 right-2 top-2 z-[500] flex flex-wrap items-center justify-between gap-2 sm:left-3 sm:right-3 sm:top-3">
               <div className="flex overflow-hidden rounded-lg border border-[#1A5268] bg-[#0B1D30]/95 shadow-lg backdrop-blur">
                 <button
@@ -280,6 +394,7 @@ export default function MapaPage() {
 
               <div className="relative w-full min-w-0 sm:w-64">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9BB2C5]" />
+
                 <input
                   type="search"
                   value={search}
@@ -291,13 +406,15 @@ export default function MapaPage() {
             </div>
 
             {/* MAPA */}
+
             <div className="absolute inset-0">
               <PortugalMapLoader
-                onMunicipalitySelect={setSelectedMunicipality}
+                onMunicipalitySelect={handleMunicipalitySelect}
               />
             </div>
 
             {/* LEGENDA */}
+
             <div className="absolute right-3 top-16 z-[500] w-52 rounded-xl border border-[#1A5268] bg-[#0B1D30]/95 p-3 shadow-xl backdrop-blur">
               <h2 className="mb-3 text-xs font-semibold">
                 Estado de Acessibilidade
@@ -308,14 +425,17 @@ export default function MapaPage() {
                   <span className="h-2.5 w-2.5 rounded-full bg-[#48DC98]" />
                   Boa acessibilidade
                 </div>
+
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-[#FFCD4B]" />
                   Acessibilidade moderada
                 </div>
+
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-[#FF6970]" />
                   Baixa acessibilidade
                 </div>
+
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-[#D6E5EF]" />
                   Sem dados
@@ -324,26 +444,31 @@ export default function MapaPage() {
             </div>
 
             {/* PAINEL DO MUNICÍPIO SELECIONADO */}
+
             {selectedMunicipality && (
-              <div className="absolute bottom-16 left-3 right-3 z-[600] max-h-[55%] overflow-y-auto rounded-xl border border-[#1A5268] bg-[#0B1D30]/95 p-4 shadow-2xl backdrop-blur sm:bottom-16 sm:left-auto sm:right-4 sm:w-80">
+              <div className="absolute bottom-16 left-3 right-3 z-[600] max-h-[65%] overflow-y-auto rounded-xl border border-[#1A5268] bg-[#0B1D30]/95 p-4 shadow-2xl backdrop-blur sm:bottom-16 sm:left-auto sm:right-4 sm:w-96">
+
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
                     <div className="mb-2 flex items-center gap-2 text-[#24D9E8]">
                       <MapPin className="h-4 w-4" />
+
                       <span className="text-[10px] font-semibold uppercase tracking-wider">
                         Município selecionado
                       </span>
                     </div>
+
                     <h2 className="text-lg font-bold text-[#E8F3FA]">
                       {selectedMunicipality.nome}
                     </h2>
+
                     <p className="mt-1 text-xs text-[#9BB2C5]">
                       {selectedMunicipality.distrito_ilha}
                     </p>
                   </div>
 
                   <button
-                    onClick={() => setSelectedMunicipality(null)}
+                    onClick={closeMunicipalityPanel}
                     aria-label="Fechar informação do município"
                     className="rounded-lg p-2 text-[#9BB2C5] transition hover:bg-[#10283D] hover:text-white"
                   >
@@ -351,12 +476,18 @@ export default function MapaPage() {
                   </button>
                 </div>
 
+                {/* INFORMAÇÃO GEOGRÁFICA */}
+
                 <div className="space-y-3">
                   <div className="rounded-lg border border-[#1A5268] bg-[#10283D] p-3">
                     <div className="mb-1 flex items-center gap-2 text-[#9BB2C5]">
                       <MapPin className="h-3.5 w-3.5" />
-                      <span className="text-[10px]">Código do município</span>
+
+                      <span className="text-[10px]">
+                        Código do município
+                      </span>
                     </div>
+
                     <p className="text-sm font-semibold">
                       {selectedMunicipality.codigo}
                     </p>
@@ -365,8 +496,12 @@ export default function MapaPage() {
                   <div className="rounded-lg border border-[#1A5268] bg-[#10283D] p-3">
                     <div className="mb-1 flex items-center gap-2 text-[#9BB2C5]">
                       <Building2 className="h-3.5 w-3.5" />
-                      <span className="text-[10px]">Região NUTS III</span>
+
+                      <span className="text-[10px]">
+                        Região NUTS III
+                      </span>
                     </div>
+
                     <p className="text-sm font-semibold">
                       {selectedMunicipality.nuts3 || "Não disponível"}
                     </p>
@@ -375,8 +510,12 @@ export default function MapaPage() {
                   <div className="rounded-lg border border-[#1A5268] bg-[#10283D] p-3">
                     <div className="mb-1 flex items-center gap-2 text-[#9BB2C5]">
                       <Ruler className="h-3.5 w-3.5" />
-                      <span className="text-[10px]">Área do município</span>
+
+                      <span className="text-[10px]">
+                        Área do município
+                      </span>
                     </div>
+
                     <p className="text-sm font-semibold">
                       {Number(selectedMunicipality.area_ha).toLocaleString(
                         "pt-PT",
@@ -387,24 +526,137 @@ export default function MapaPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 rounded-lg border border-dashed border-[#1A5268] p-3">
-                  <p className="text-xs font-semibold text-[#24D9E8]">
-                    Indicadores de habitação
-                  </p>
+                {/* CALCULADORA DE ACESSIBILIDADE */}
+
+                <div className="mt-4 border-t border-[#1A5268] pt-4">
+                  <h3 className="text-sm font-bold text-[#E8F3FA]">
+                    Análise de acessibilidade
+                  </h3>
+
                   <p className="mt-1 text-[11px] leading-relaxed text-[#9BB2C5]">
-                    Os indicadores de renda, acessibilidade e taxa de esforço
-                    deste município serão apresentados após a integração das
-                    respetivas fontes de dados.
+                    Introduz uma renda mensal para calcular o seu peso no rendimento do agregado familiar.
                   </p>
+
+                  <div className="mt-4">
+                    <label
+                      htmlFor="monthly-rent"
+                      className="text-xs font-semibold"
+                    >
+                      Renda mensal considerada
+                    </label>
+
+                    <div className="mt-2 flex items-center gap-2 rounded-lg border border-[#1A5268] bg-[#10283D] px-3 py-3 focus-within:border-[#24D9E8]">
+                      <span className="font-semibold text-[#24D9E8]">
+                        €
+                      </span>
+
+                      <input
+                        id="monthly-rent"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={monthlyRent}
+                        onChange={(event) =>
+                          setMonthlyRent(event.target.value)
+                        }
+                        placeholder="Ex.: 650"
+                        className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-[#71899C]"
+                      />
+                    </div>
+
+                    <p className="mt-2 text-[10px] text-[#9BB2C5]">
+                      Valor de simulação introduzido por ti. Não corresponde a uma renda estatística deste município.
+                    </p>
+                  </div>
+
+                  {/* RESULTADOS */}
+
+                  <div className="mt-4 rounded-xl border border-[#1A5268] bg-[#10283D] p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-[#9BB2C5]">
+                        Taxa de esforço
+                      </span>
+
+                      <span
+                        className={`text-xl font-bold tabular-nums ${statusInfo.color}`}
+                      >
+                        {effortRate === null
+                          ? "—"
+                          : `${effortRate.toLocaleString("pt-PT", {
+                              maximumFractionDigits: 1,
+                            })}%`}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#06111F]">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          effortStatus === "good"
+                            ? "bg-[#48DC98]"
+                            : effortStatus === "moderate"
+                              ? "bg-[#FFCD4B]"
+                              : effortStatus === "low"
+                                ? "bg-[#FF6970]"
+                                : "bg-[#71899C]"
+                        }`}
+                        style={{
+                          width: `${Math.min(effortRate ?? 0, 100)}%`,
+                        }}
+                      />
+                    </div>
+
+                    <div
+                      className={`mt-3 rounded-lg border p-3 ${statusInfo.background} ${statusInfo.border}`}
+                    >
+                      <p className={`text-xs font-bold ${statusInfo.color}`}>
+                        {statusInfo.label}
+                      </p>
+
+                      <p className="mt-1 text-[10px] leading-relaxed text-[#9BB2C5]">
+                        {statusInfo.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-xl border border-[#1A5268] bg-[#10283D] p-3">
+                    <p className="text-[10px] text-[#9BB2C5]">
+                      Rendimento líquido mensal
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold">
+                      {formatCurrency(income)}
+                    </p>
+
+                    <div className="mt-3 border-t border-[#1A5268] pt-3">
+                      <p className="text-[10px] text-[#9BB2C5]">
+                        Saldo após pagamento da renda
+                      </p>
+
+                      <p className="mt-1 text-lg font-bold text-[#24D9E8]">
+                        {formatCurrency(remainingAfterRent)}
+                      </p>
+
+                      <p className="mt-1 text-[10px] leading-relaxed text-[#9BB2C5]">
+                        Não representa poupança. Ainda é necessário considerar as restantes despesas mensais.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-lg border border-dashed border-[#1A5268] p-3">
+                    <p className="text-[10px] leading-relaxed text-[#9BB2C5]">
+                      A classificação utiliza limites de referência configurados para este protótipo: boa até 25%, moderada acima de 25% até 35% e baixa acima de 35%. Estes limites são critérios de exploração, não regras legais ou universais.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* INFORMAÇÃO DO PERFIL */}
+
             <div className="absolute bottom-4 left-4 z-[500] rounded-lg border border-[#1A5268] bg-[#0B1D30]/95 px-3 py-2 text-[10px] text-[#9BB2C5] shadow-lg backdrop-blur">
-              Perfil: {household} pessoas · €
-              {income.toLocaleString("pt-PT")} · {typology}
+              Perfil: {household} pessoas · {formatCurrency(income)} · {typology}
             </div>
+
           </main>
         </div>
       </div>
