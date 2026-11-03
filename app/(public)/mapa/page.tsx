@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
 import AppShell from "@/components/layout/AppShell";
 import PortugalMapLoader from "@/components/map/PortugalMapLoader";
 import type { MunicipalityProperties } from "@/components/map/PortugalMap";
@@ -26,17 +27,45 @@ import {
 
 import type { EffortStatus } from "@/lib/calculations/effort";
 
-function formatCurrency(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) {
-    return "—";
-  }
+// --------------------------------------------------
+// TIPOS DOS DADOS DO INE
+// --------------------------------------------------
 
-  return new Intl.NumberFormat("pt-PT", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 2,
-  }).format(value);
-}
+type AnnualRentData = {
+  rentMedianPerM2: number | null;
+  newContracts: number | null;
+  status: "official" | "missing" | string;
+};
+
+type MunicipalRentRecord = {
+  code: string;
+  ineCode: string;
+  name: string;
+  annual: Record<string, AnnualRentData>;
+};
+
+type MunicipalRentDataset = {
+  metadata: {
+    title: string;
+    source: string;
+    rentIndicatorId: string;
+    contractsIndicatorId: string;
+    unit: string;
+    periodicity: string;
+    geography: string;
+    referenceYears: number[];
+    sourceLastUpdated: string;
+    rentSourceUrl: string;
+    coverageByYear?: Record<
+      string,
+      {
+        availableMunicipalities: number;
+        missingMunicipalities: number;
+      }
+    >;
+  };
+  municipalities: MunicipalRentRecord[];
+};
 
 type StatusInfo = {
   label: string;
@@ -45,6 +74,10 @@ type StatusInfo = {
   background: string;
   border: string;
 };
+
+// --------------------------------------------------
+// CLASSIFICAÇÃO DA ACESSIBILIDADE
+// --------------------------------------------------
 
 const STATUS_INFO: Record<EffortStatus, StatusInfo> = {
   good: {
@@ -72,68 +105,297 @@ const STATUS_INFO: Record<EffortStatus, StatusInfo> = {
   missing: {
     label: "Sem dados",
     description:
-      "Introduz uma renda válida e um rendimento positivo.",
+      "Não existem dados suficientes para calcular a acessibilidade.",
     color: "text-[#9BB2C5]",
     background: "bg-[#9BB2C5]/10",
     border: "border-[#9BB2C5]/30",
   },
 };
 
+// --------------------------------------------------
+// FUNÇÕES AUXILIARES
+// --------------------------------------------------
+
+function formatCurrency(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat("pt-PT", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatNumber(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat("pt-PT", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatDate(value: string): string {
+  if (!value) return "Não indicada";
+
+  const parts = value.split("-");
+
+  if (parts.length !== 3) return value;
+
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+// --------------------------------------------------
+// PÁGINA DO MAPA
+// --------------------------------------------------
+
 export default function MapaPage() {
-  const [household, setHousehold] = useState("3");
-  const [income, setIncome] = useState(1800);
-  const [typology, setTypology] = useState("T2");
+  // Perfil: começa sem valores predefinidos.
+  const [household, setHousehold] = useState<string | null>(null);
+  const [income, setIncome] = useState("");
+  const [typology, setTypology] = useState<string | null>(null);
+  const [dwellingArea, setDwellingArea] = useState("");
+
+  // Filtros
   const [effort, setEffort] = useState(35);
   const [mapMode, setMapMode] = useState("map");
   const [search, setSearch] = useState("");
   const [applied, setApplied] = useState(false);
 
+  // Município selecionado
   const [selectedMunicipality, setSelectedMunicipality] =
     useState<MunicipalityProperties | null>(null);
 
-  const [monthlyRent, setMonthlyRent] = useState("");
+  // Dados do INE
+  const [rentDataset, setRentDataset] =
+    useState<MunicipalRentDataset | null>(null);
 
-  const rentValue =
-    monthlyRent.trim() === "" ? null : Number(monthlyRent);
+  const [rentDataLoading, setRentDataLoading] = useState(true);
+  const [rentDataError, setRentDataError] = useState(false);
 
-  const effortRate = calculateEffortRate(rentValue, income);
+  // --------------------------------------------------
+  // VALIDAR PERFIL
+  // --------------------------------------------------
 
-  const remainingAfterRent = calculateRemainingAfterRent(
-    rentValue,
-    income
-  );
+  const incomeValue =
+    income.trim() === "" ? null : Number(income);
 
-  // Tipagem explícita para garantir uma chave válida em STATUS_INFO.
-  const effortStatus: EffortStatus = classifyEffort(effortRate);
+  const areaValue =
+    dwellingArea.trim() === "" ? null : Number(dwellingArea);
+
+  const validIncome =
+    incomeValue !== null &&
+    Number.isFinite(incomeValue) &&
+    incomeValue > 0;
+
+  const validArea =
+    areaValue !== null &&
+    Number.isFinite(areaValue) &&
+    areaValue > 0;
+
+  const profileComplete =
+    household !== null &&
+    typology !== null &&
+    validIncome &&
+    validArea;
+
+  // --------------------------------------------------
+  // CARREGAR DADOS DO INE
+  // --------------------------------------------------
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadRentData() {
+      try {
+        const response = await fetch(
+          "/data/rendas-municipais.json",
+          { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            "Não foi possível carregar os dados do INE."
+          );
+        }
+
+        const data =
+          (await response.json()) as MunicipalRentDataset;
+
+        if (
+          !data.metadata ||
+          !Array.isArray(data.metadata.referenceYears) ||
+          !Array.isArray(data.municipalities)
+        ) {
+          throw new Error("Estrutura dos dados inválida.");
+        }
+
+        if (active) {
+          setRentDataset(data);
+          setRentDataError(false);
+        }
+      } catch (error) {
+        console.error(
+          "Erro ao carregar rendas municipais:",
+          error
+        );
+
+        if (active) {
+          setRentDataError(true);
+        }
+      } finally {
+        if (active) {
+          setRentDataLoading(false);
+        }
+      }
+    }
+
+    loadRentData();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // --------------------------------------------------
+  // IDENTIFICAR DADOS DO MUNICÍPIO
+  // --------------------------------------------------
+
+  const referenceYears =
+    rentDataset?.metadata.referenceYears ?? [];
+
+  const referenceYear =
+    referenceYears.length > 0
+      ? Math.max(...referenceYears)
+      : null;
+
+  const municipalRentRecord =
+    selectedMunicipality && rentDataset
+      ? rentDataset.municipalities.find(
+          (item) =>
+            String(item.code).padStart(4, "0") ===
+            String(selectedMunicipality.codigo).padStart(4, "0")
+        )
+      : undefined;
+
+  const annualRent =
+    referenceYear !== null
+      ? municipalRentRecord?.annual[String(referenceYear)]
+      : undefined;
+
+  const rentMedianPerM2 =
+    typeof annualRent?.rentMedianPerM2 === "number" &&
+    annualRent.rentMedianPerM2 >= 0
+      ? annualRent.rentMedianPerM2
+      : null;
+
+  const availableContracts =
+    annualRent?.newContracts ?? null;
+
+  // --------------------------------------------------
+  // CALCULAR RENDA E TAXA DE ESFORÇO
+  // --------------------------------------------------
+
+  const estimatedMonthlyRent =
+    rentMedianPerM2 !== null && validArea
+      ? rentMedianPerM2 * areaValue!
+      : null;
+
+  const effortRate = applied
+    ? calculateEffortRate(estimatedMonthlyRent, incomeValue)
+    : null;
+
+  const remainingAfterRent = applied
+    ? calculateRemainingAfterRent(
+        estimatedMonthlyRent,
+        incomeValue
+      )
+    : null;
+
+  const effortStatus: EffortStatus =
+    classifyEffort(effortRate);
 
   const statusInfo = STATUS_INFO[effortStatus];
+
+  const coverage =
+    referenceYear !== null
+      ? rentDataset?.metadata.coverageByYear?.[
+          String(referenceYear)
+        ]
+      : undefined;
+
+  // --------------------------------------------------
+  // ALTERAÇÕES AO PERFIL
+  // --------------------------------------------------
+
+  function updateHousehold(value: string) {
+    setHousehold(value);
+    setApplied(false);
+  }
+
+  function updateIncome(value: string) {
+    setIncome(value);
+    setApplied(false);
+  }
+
+  function updateTypology(value: string) {
+    setTypology(value);
+    setApplied(false);
+  }
+
+  function updateDwellingArea(value: string) {
+    setDwellingArea(value);
+    setApplied(false);
+  }
+
+  function applyProfile() {
+    if (!profileComplete) return;
+
+    setApplied(true);
+  }
+
+  // --------------------------------------------------
+  // SELEÇÃO DE MUNICÍPIO
+  // --------------------------------------------------
 
   function handleMunicipalitySelect(
     municipality: MunicipalityProperties
   ) {
     setSelectedMunicipality(municipality);
-    setMonthlyRent("");
   }
 
   function closeMunicipalityPanel() {
     setSelectedMunicipality(null);
-    setMonthlyRent("");
   }
 
+  // --------------------------------------------------
+  // LIMPAR PERFIL
+  // --------------------------------------------------
+
   function clearFilters() {
-    setHousehold("3");
-    setIncome(1800);
-    setTypology("T2");
+    setHousehold(null);
+    setIncome("");
+    setTypology(null);
+    setDwellingArea("");
     setEffort(35);
     setSearch("");
     setApplied(false);
     setSelectedMunicipality(null);
-    setMonthlyRent("");
   }
+
+  // --------------------------------------------------
+  // INTERFACE
+  // --------------------------------------------------
 
   return (
     <AppShell>
       <div className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-[#06111F] text-[#E8F3FA]">
+
         <div className="grid min-h-[calc(100dvh-76px)] grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)]">
 
           {/* PAINEL LATERAL */}
@@ -141,7 +403,7 @@ export default function MapaPage() {
           <aside className="relative z-10 border-b border-[#1A5268] bg-[#071725] p-3 lg:min-h-[calc(100dvh-76px)] lg:border-b-0 lg:border-r">
 
             <div className="mb-4 px-1">
-              <h2 className="text-base font-bold tracking-tight text-[#E8F3FA]">
+              <h2 className="text-base font-bold tracking-tight">
                 Define o teu perfil
               </h2>
 
@@ -161,7 +423,9 @@ export default function MapaPage() {
                 {["1", "2", "3", "4+"].map((value) => (
                   <button
                     key={value}
-                    onClick={() => setHousehold(value)}
+                    type="button"
+                    aria-pressed={household === value}
+                    onClick={() => updateHousehold(value)}
                     className={`flex flex-col items-center gap-2 rounded-lg border px-1 py-3 transition ${
                       household === value
                         ? "border-[#24D9E8] bg-[#24D9E8]/15 text-[#24D9E8]"
@@ -222,13 +486,22 @@ export default function MapaPage() {
                   </button>
                 ))}
               </div>
+
+              {household === null && (
+                <p className="mt-2 text-[10px] text-[#9BB2C5]">
+                  Seleciona o número de pessoas do agregado.
+                </p>
+              )}
             </section>
 
             {/* RENDIMENTO */}
 
             <section className="mt-3 rounded-xl border border-[#1A5268] bg-[#0B1D30] p-3">
-              <label htmlFor="income" className="text-xs font-semibold">
-                Rendimento líquido mensal
+              <label
+                htmlFor="income"
+                className="text-xs font-semibold"
+              >
+                Rendimento líquido mensal do agregado
               </label>
 
               <div className="mt-2 flex items-center gap-2 border-b border-[#1A5268] pb-2">
@@ -239,33 +512,34 @@ export default function MapaPage() {
                 <input
                   id="income"
                   type="number"
-                  min="0"
-                  max="5000"
+                  min="0.01"
                   step="0.01"
                   value={income}
                   onChange={(event) =>
-                    setIncome(Math.max(0, Number(event.target.value)))
+                    updateIncome(event.target.value)
                   }
-                  className="w-full bg-transparent text-lg font-semibold outline-none"
+                  placeholder="Ex.: 1800"
+                  className="w-full bg-transparent text-lg font-semibold outline-none placeholder:text-[#71899C]"
                 />
               </div>
 
-              <input
-                type="range"
-                min="500"
-                max="5000"
-                step="50"
-                value={Math.min(5000, Math.max(500, income))}
-                onChange={(event) =>
-                  setIncome(Number(event.target.value))
-                }
-                className="mt-4 w-full accent-[#24D9E8]"
-              />
+              {validIncome && incomeValue !== null && incomeValue <= 5000 && (
+                <input
+                  type="range"
+                  min="0"
+                  max="5000"
+                  step="50"
+                  value={incomeValue}
+                  onChange={(event) =>
+                    updateIncome(event.target.value)
+                  }
+                  className="mt-4 w-full accent-[#24D9E8]"
+                />
+              )}
 
-              <div className="flex justify-between text-[10px] text-[#9BB2C5]">
-                <span>€500</span>
-                <span>€5.000</span>
-              </div>
+              <p className="mt-2 text-[10px] text-[#9BB2C5]">
+                Indica o rendimento líquido mensal total de todas as pessoas do agregado.
+              </p>
             </section>
 
             {/* TIPOLOGIA */}
@@ -279,7 +553,9 @@ export default function MapaPage() {
                 {["Estúdio", "T1", "T2", "T3+"].map((value) => (
                   <button
                     key={value}
-                    onClick={() => setTypology(value)}
+                    type="button"
+                    aria-pressed={typology === value}
+                    onClick={() => updateTypology(value)}
                     className={`rounded-lg border px-1 py-2 text-xs transition ${
                       typology === value
                         ? "border-[#24D9E8] bg-[#24D9E8]/20 font-bold text-[#24D9E8]"
@@ -290,6 +566,48 @@ export default function MapaPage() {
                   </button>
                 ))}
               </div>
+
+              {typology === null && (
+                <p className="mt-2 text-[10px] text-[#9BB2C5]">
+                  Seleciona a tipologia que procuras.
+                </p>
+              )}
+            </section>
+
+            {/* ÁREA DA HABITAÇÃO */}
+
+            <section className="mt-3 rounded-xl border border-[#1A5268] bg-[#0B1D30] p-3">
+              <label
+                htmlFor="dwellingArea"
+                className="text-xs font-semibold"
+              >
+                Área da habitação
+              </label>
+
+              <div className="mt-2 flex items-center gap-2 border-b border-[#1A5268] pb-2">
+                <Ruler className="h-4 w-4 text-[#24D9E8]" />
+
+                <input
+                  id="dwellingArea"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={dwellingArea}
+                  onChange={(event) =>
+                    updateDwellingArea(event.target.value)
+                  }
+                  placeholder="Ex.: 80"
+                  className="w-full bg-transparent text-lg font-semibold outline-none placeholder:text-[#71899C]"
+                />
+
+                <span className="text-sm text-[#9BB2C5]">
+                  m²
+                </span>
+              </div>
+
+              <p className="mt-2 text-[10px] leading-relaxed text-[#9BB2C5]">
+                Indica a área aproximada da habitação. É utilizada para estimar a renda a partir do valor do INE por metro quadrado.
+              </p>
             </section>
 
             {/* FILTROS ADICIONAIS */}
@@ -303,7 +621,10 @@ export default function MapaPage() {
                 </h2>
               </div>
 
-              <label htmlFor="effort" className="text-xs text-[#9BB2C5]">
+              <label
+                htmlFor="effort"
+                className="text-xs text-[#9BB2C5]"
+              >
                 Taxa de esforço máxima (%)
               </label>
 
@@ -314,9 +635,10 @@ export default function MapaPage() {
                 max="50"
                 step="5"
                 value={effort}
-                onChange={(event) =>
-                  setEffort(Number(event.target.value))
-                }
+                onChange={(event) => {
+                  setEffort(Number(event.target.value));
+                  setApplied(false);
+                }}
                 className="mt-3 w-full accent-[#24D9E8]"
               />
 
@@ -332,17 +654,20 @@ export default function MapaPage() {
               </p>
             </section>
 
-            {/* AÇÕES */}
+            {/* APLICAR PERFIL E LIMPAR */}
 
             <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
               <button
-                onClick={() => setApplied(true)}
-                className="rounded-lg bg-[#24D9E8] px-3 py-3 text-xs font-bold text-[#06111F] transition hover:bg-[#65EAF2]"
+                type="button"
+                onClick={applyProfile}
+                disabled={!profileComplete}
+                className="rounded-lg bg-[#24D9E8] px-3 py-3 text-xs font-bold text-[#06111F] transition hover:bg-[#65EAF2] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-[#24D9E8]"
               >
-                Aplicar filtros
+                Aplicar perfil
               </button>
 
               <button
+                type="button"
                 onClick={clearFilters}
                 className="flex items-center gap-1 rounded-lg border border-[#1A5268] px-3 py-3 text-xs text-[#9BB2C5] transition hover:border-[#24D9E8] hover:text-[#24D9E8]"
               >
@@ -351,12 +676,23 @@ export default function MapaPage() {
               </button>
             </div>
 
-            {applied && (
-              <p className="mt-2 text-center text-[11px] text-[#48DC98]">
-                Perfil aplicado. O rendimento definido será utilizado nos cálculos.
+            {!profileComplete && (
+              <p className="mt-2 text-center text-[10px] leading-relaxed text-[#9BB2C5]">
+                Preenche o agregado, rendimento, tipologia e área da habitação para aplicar o perfil.
               </p>
             )}
 
+            {profileComplete && !applied && (
+              <p className="mt-2 text-center text-[10px] text-[#FFCD4B]">
+                Perfil preenchido. Aplica-o para atualizar a análise.
+              </p>
+            )}
+
+            {applied && (
+              <p className="mt-2 text-center text-[11px] text-[#48DC98]">
+                Perfil aplicado com sucesso.
+              </p>
+            )}
           </aside>
 
           {/* ÁREA DO MAPA */}
@@ -366,6 +702,7 @@ export default function MapaPage() {
             {/* BARRA SUPERIOR */}
 
             <div className="absolute left-2 right-2 top-2 z-[500] flex flex-wrap items-center justify-between gap-2 sm:left-3 sm:right-3 sm:top-3">
+
               <div className="flex overflow-hidden rounded-lg border border-[#1A5268] bg-[#0B1D30]/95 shadow-lg backdrop-blur">
                 <button
                   onClick={() => setMapMode("map")}
@@ -443,10 +780,12 @@ export default function MapaPage() {
               </div>
             </div>
 
-            {/* PAINEL DO MUNICÍPIO SELECIONADO */}
+            {/* PAINEL DO MUNICÍPIO */}
 
             {selectedMunicipality && (
-              <div className="absolute bottom-16 left-3 right-3 z-[600] max-h-[65%] overflow-y-auto rounded-xl border border-[#1A5268] bg-[#0B1D30]/95 p-4 shadow-2xl backdrop-blur sm:bottom-16 sm:left-auto sm:right-4 sm:w-96">
+              <div className="absolute bottom-16 left-3 right-3 z-[600] max-h-[70%] overflow-y-auto rounded-xl border border-[#1A5268] bg-[#0B1D30]/95 p-4 shadow-2xl backdrop-blur sm:bottom-16 sm:left-auto sm:right-4 sm:w-96">
+
+                {/* CABEÇALHO */}
 
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
@@ -458,7 +797,7 @@ export default function MapaPage() {
                       </span>
                     </div>
 
-                    <h2 className="text-lg font-bold text-[#E8F3FA]">
+                    <h2 className="text-lg font-bold">
                       {selectedMunicipality.nome}
                     </h2>
 
@@ -482,7 +821,6 @@ export default function MapaPage() {
                   <div className="rounded-lg border border-[#1A5268] bg-[#10283D] p-3">
                     <div className="mb-1 flex items-center gap-2 text-[#9BB2C5]">
                       <MapPin className="h-3.5 w-3.5" />
-
                       <span className="text-[10px]">
                         Código do município
                       </span>
@@ -496,7 +834,6 @@ export default function MapaPage() {
                   <div className="rounded-lg border border-[#1A5268] bg-[#10283D] p-3">
                     <div className="mb-1 flex items-center gap-2 text-[#9BB2C5]">
                       <Building2 className="h-3.5 w-3.5" />
-
                       <span className="text-[10px]">
                         Região NUTS III
                       </span>
@@ -510,7 +847,6 @@ export default function MapaPage() {
                   <div className="rounded-lg border border-[#1A5268] bg-[#10283D] p-3">
                     <div className="mb-1 flex items-center gap-2 text-[#9BB2C5]">
                       <Ruler className="h-3.5 w-3.5" />
-
                       <span className="text-[10px]">
                         Área do município
                       </span>
@@ -526,135 +862,277 @@ export default function MapaPage() {
                   </div>
                 </div>
 
-                {/* CALCULADORA DE ACESSIBILIDADE */}
+                {/* DADOS DO INE */}
 
                 <div className="mt-4 border-t border-[#1A5268] pt-4">
-                  <h3 className="text-sm font-bold text-[#E8F3FA]">
-                    Análise de acessibilidade
+                  <h3 className="text-sm font-bold">
+                    Rendas de novos contratos
                   </h3>
 
-                  <p className="mt-1 text-[11px] leading-relaxed text-[#9BB2C5]">
-                    Introduz uma renda mensal para calcular o seu peso no rendimento do agregado familiar.
-                  </p>
-
-                  <div className="mt-4">
-                    <label
-                      htmlFor="monthly-rent"
-                      className="text-xs font-semibold"
-                    >
-                      Renda mensal considerada
-                    </label>
-
-                    <div className="mt-2 flex items-center gap-2 rounded-lg border border-[#1A5268] bg-[#10283D] px-3 py-3 focus-within:border-[#24D9E8]">
-                      <span className="font-semibold text-[#24D9E8]">
-                        €
-                      </span>
-
-                      <input
-                        id="monthly-rent"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={monthlyRent}
-                        onChange={(event) =>
-                          setMonthlyRent(event.target.value)
-                        }
-                        placeholder="Ex.: 650"
-                        className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-[#71899C]"
-                      />
-                    </div>
-
-                    <p className="mt-2 text-[10px] text-[#9BB2C5]">
-                      Valor de simulação introduzido por ti. Não corresponde a uma renda estatística deste município.
+                  {rentDataLoading && (
+                    <p className="mt-3 text-xs text-[#9BB2C5]">
+                      A carregar dados do INE...
                     </p>
-                  </div>
+                  )}
 
-                  {/* RESULTADOS */}
-
-                  <div className="mt-4 rounded-xl border border-[#1A5268] bg-[#10283D] p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-[#9BB2C5]">
-                        Taxa de esforço
-                      </span>
-
-                      <span
-                        className={`text-xl font-bold tabular-nums ${statusInfo.color}`}
-                      >
-                        {effortRate === null
-                          ? "—"
-                          : `${effortRate.toLocaleString("pt-PT", {
-                              maximumFractionDigits: 1,
-                            })}%`}
-                      </span>
-                    </div>
-
-                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#06111F]">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          effortStatus === "good"
-                            ? "bg-[#48DC98]"
-                            : effortStatus === "moderate"
-                              ? "bg-[#FFCD4B]"
-                              : effortStatus === "low"
-                                ? "bg-[#FF6970]"
-                                : "bg-[#71899C]"
-                        }`}
-                        style={{
-                          width: `${Math.min(effortRate ?? 0, 100)}%`,
-                        }}
-                      />
-                    </div>
-
-                    <div
-                      className={`mt-3 rounded-lg border p-3 ${statusInfo.background} ${statusInfo.border}`}
-                    >
-                      <p className={`text-xs font-bold ${statusInfo.color}`}>
-                        {statusInfo.label}
-                      </p>
-
-                      <p className="mt-1 text-[10px] leading-relaxed text-[#9BB2C5]">
-                        {statusInfo.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 rounded-xl border border-[#1A5268] bg-[#10283D] p-3">
-                    <p className="text-[10px] text-[#9BB2C5]">
-                      Rendimento líquido mensal
+                  {rentDataError && (
+                    <p className="mt-3 rounded-lg border border-[#FF6970]/30 bg-[#FF6970]/10 p-3 text-xs text-[#FF6970]">
+                      Não foi possível carregar os dados municipais.
+                      Confirma se rendas-municipais.json está em public/data.
                     </p>
+                  )}
 
-                    <p className="mt-1 text-sm font-semibold">
-                      {formatCurrency(income)}
-                    </p>
+                  {/* CORREÇÃO: só apresentar conteúdo quando rentDataset existe */}
 
-                    <div className="mt-3 border-t border-[#1A5268] pt-3">
-                      <p className="text-[10px] text-[#9BB2C5]">
-                        Saldo após pagamento da renda
-                      </p>
+                  {!rentDataLoading && !rentDataError && rentDataset && (
+                    <>
+                      {annualRent && rentMedianPerM2 !== null ? (
+                        <div className="mt-3 rounded-xl border border-[#1A5268] bg-[#10283D] p-3">
+                          <p className="text-[10px] text-[#9BB2C5]">
+                            Valor mediano por metro quadrado · {referenceYear}
+                          </p>
 
-                      <p className="mt-1 text-lg font-bold text-[#24D9E8]">
-                        {formatCurrency(remainingAfterRent)}
-                      </p>
+                          <p className="mt-1 text-xl font-bold text-[#24D9E8]">
+                            {formatNumber(rentMedianPerM2)} €/m²/mês
+                          </p>
 
-                      <p className="mt-1 text-[10px] leading-relaxed text-[#9BB2C5]">
-                        Não representa poupança. Ainda é necessário considerar as restantes despesas mensais.
-                      </p>
-                    </div>
-                  </div>
+                          <p className="mt-2 text-[10px] text-[#9BB2C5]">
+                            Novos contratos registados:{" "}
+                            {availableContracts !== null
+                              ? availableContracts.toLocaleString("pt-PT")
+                              : "Não disponível"}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="mt-3 rounded-lg border border-dashed border-[#1A5268] p-3">
+                          <p className="text-xs font-semibold text-[#9BB2C5]">
+                            Sem dados disponíveis
+                          </p>
 
-                  <div className="mt-3 rounded-lg border border-dashed border-[#1A5268] p-3">
-                    <p className="text-[10px] leading-relaxed text-[#9BB2C5]">
-                      A classificação utiliza limites de referência configurados para este protótipo: boa até 25%, moderada acima de 25% até 35% e baixa acima de 35%. Estes limites são critérios de exploração, não regras legais ou universais.
-                    </p>
-                  </div>
+                          <p className="mt-1 text-[10px] leading-relaxed text-[#9BB2C5]">
+                            O INE não publicou um valor para este município
+                            no período de referência de {referenceYear ?? "—"}.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* ESTIMATIVA DA RENDA */}
+
+                      {annualRent && rentMedianPerM2 !== null && (
+                        <div className="mt-3 rounded-xl border border-[#1A5268] bg-[#10283D] p-3">
+                          <p className="text-[10px] text-[#9BB2C5]">
+                            Renda mensal estimada
+                          </p>
+
+                          {validArea ? (
+                            <>
+                              <p className="mt-1 text-2xl font-bold">
+                                {formatCurrency(
+                                  rentMedianPerM2 * areaValue!
+                                )}
+                              </p>
+
+                              <p className="mt-2 text-[10px] text-[#9BB2C5]">
+                                {formatNumber(rentMedianPerM2)} €/m² ×{" "}
+                                {formatNumber(areaValue)} m²
+                              </p>
+                            </>
+                          ) : (
+                            <p className="mt-2 text-[10px] text-[#9BB2C5]">
+                              Preenche e aplica a área da habitação na barra
+                              esquerda para obter uma estimativa.
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ANÁLISE DE ACESSIBILIDADE */}
+
+                      <div className="mt-4">
+                        <h3 className="text-sm font-bold">
+                          Análise de acessibilidade
+                        </h3>
+
+                        {!applied && (
+                          <div className="mt-3 rounded-lg border border-dashed border-[#1A5268] p-3">
+                            <p className="text-xs font-semibold text-[#24D9E8]">
+                              Perfil por definir
+                            </p>
+
+                            <p className="mt-1 text-[10px] leading-relaxed text-[#9BB2C5]">
+                              Preenche o perfil familiar na barra esquerda
+                              e aplica-o para consultar os indicadores de
+                              acessibilidade deste município.
+                            </p>
+                          </div>
+                        )}
+
+                        {applied && (
+                          <>
+                            {effortRate === null ? (
+                              <div className="mt-3 rounded-lg border border-dashed border-[#1A5268] p-3">
+                                <p className="text-xs font-semibold text-[#9BB2C5]">
+                                  Sem dados para calcular
+                                </p>
+
+                                <p className="mt-1 text-[10px] text-[#9BB2C5]">
+                                  Não existe um valor de renda publicado
+                                  para este município no período selecionado.
+                                </p>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="mt-3 rounded-xl border border-[#1A5268] bg-[#10283D] p-3">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs text-[#9BB2C5]">
+                                      Taxa de esforço
+                                    </span>
+
+                                    <span
+                                      className={`text-xl font-bold tabular-nums ${statusInfo.color}`}
+                                    >
+                                      {effortRate.toLocaleString("pt-PT", {
+                                        maximumFractionDigits: 1,
+                                      })}%
+                                    </span>
+                                  </div>
+
+                                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#06111F]">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${
+                                        effortStatus === "good"
+                                          ? "bg-[#48DC98]"
+                                          : effortStatus === "moderate"
+                                            ? "bg-[#FFCD4B]"
+                                            : effortStatus === "low"
+                                              ? "bg-[#FF6970]"
+                                              : "bg-[#71899C]"
+                                      }`}
+                                      style={{
+                                        width: `${Math.min(effortRate, 100)}%`,
+                                      }}
+                                    />
+                                  </div>
+
+                                  <div
+                                    className={`mt-3 rounded-lg border p-3 ${statusInfo.background} ${statusInfo.border}`}
+                                  >
+                                    <p className={`text-xs font-bold ${statusInfo.color}`}>
+                                      {statusInfo.label}
+                                    </p>
+
+                                    <p className="mt-1 text-[10px] leading-relaxed text-[#9BB2C5]">
+                                      {statusInfo.description}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 rounded-xl border border-[#1A5268] bg-[#10283D] p-3">
+                                  <p className="text-[10px] text-[#9BB2C5]">
+                                    Rendimento líquido mensal
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-semibold">
+                                    {formatCurrency(incomeValue)}
+                                  </p>
+
+                                  <div className="mt-3 border-t border-[#1A5268] pt-3">
+                                    <p className="text-[10px] text-[#9BB2C5]">
+                                      Saldo após pagamento da renda
+                                    </p>
+
+                                    <p className="mt-1 text-lg font-bold text-[#24D9E8]">
+                                      {formatCurrency(remainingAfterRent)}
+                                    </p>
+
+                                    <p className="mt-1 text-[10px] leading-relaxed text-[#9BB2C5]">
+                                      Não representa poupança. Ainda é
+                                      necessário considerar as restantes
+                                      despesas mensais.
+                                    </p>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      {/* METODOLOGIA E FONTE */}
+
+                      <div className="mt-3 rounded-lg border border-dashed border-[#1A5268] p-3">
+                        <p className="text-[10px] font-semibold text-[#24D9E8]">
+                          Fonte e metodologia
+                        </p>
+
+                        <p className="mt-2 text-[10px] leading-relaxed text-[#9BB2C5]">
+                          Fonte: {rentDataset.metadata.source}.
+                        </p>
+
+                        <p className="mt-1 text-[10px] leading-relaxed text-[#9BB2C5]">
+                          Indicador INE: {rentDataset.metadata.rentIndicatorId}.
+                          Período: {referenceYear}.
+                        </p>
+
+                        <p className="mt-1 text-[10px] leading-relaxed text-[#9BB2C5]">
+                          Atualização indicada na fonte:{" "}
+                          {formatDate(
+                            rentDataset.metadata.sourceLastUpdated
+                          )}.
+                        </p>
+
+                        <a
+                          href={rentDataset.metadata.rentSourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 inline-block text-[10px] font-semibold text-[#24D9E8] hover:underline"
+                        >
+                          Consultar indicador no INE
+                        </a>
+
+                        <p className="mt-3 text-[10px] leading-relaxed text-[#9BB2C5]">
+                          A renda estimada resulta da multiplicação do
+                          valor mediano dos novos contratos por m² pela
+                          área indicada. Não representa a mediana efetiva
+                          das rendas de uma tipologia nem o preço atual
+                          de mercado.
+                        </p>
+
+                        <p className="mt-2 text-[10px] leading-relaxed text-[#9BB2C5]">
+                          A tipologia selecionada é uma preferência do
+                          utilizador. O indicador utilizado não está
+                          desagregado por tipologia.
+                        </p>
+
+                        {coverage && (
+                          <p className="mt-2 text-[10px] text-[#9BB2C5]">
+                            Cobertura nacional em {referenceYear}:{" "}
+                            {coverage.availableMunicipalities} de 308
+                            municípios com dados publicados.
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* INFORMAÇÃO DO PERFIL */}
+            {/* RESUMO DO PERFIL */}
 
-            <div className="absolute bottom-4 left-4 z-[500] rounded-lg border border-[#1A5268] bg-[#0B1D30]/95 px-3 py-2 text-[10px] text-[#9BB2C5] shadow-lg backdrop-blur">
-              Perfil: {household} pessoas · {formatCurrency(income)} · {typology}
+            <div className="absolute bottom-4 left-4 z-[500] max-w-[85%] rounded-lg border border-[#1A5268] bg-[#0B1D30]/95 px-3 py-2 text-[10px] text-[#9BB2C5] shadow-lg backdrop-blur">
+              Perfil:{" "}
+              {household ? `${household} pessoas` : "Agregado por definir"}
+              {" · "}
+              {validIncome && incomeValue !== null
+                ? formatCurrency(incomeValue)
+                : "Rendimento por definir"}
+              {" · "}
+              {typology ?? "Tipologia por definir"}
+              {" · "}
+              {validArea && areaValue !== null
+                ? `${formatNumber(areaValue)} m²`
+                : "Área por definir"}
             </div>
 
           </main>
