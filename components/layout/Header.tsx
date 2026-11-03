@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
@@ -14,19 +14,20 @@ const navigation = [
   { label: "Contacto", href: "/contacto" },
 ];
 
-export default function Header() {
+function HeaderContent() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
+  const mapaActive = pathname.startsWith("/mapa");
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#1A5268] bg-[#06111F]/95 backdrop-blur-md">
       <div className="mx-auto flex min-h-20 max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-
         {/* Logo */}
         <Link
           href="/"
@@ -35,11 +36,7 @@ export default function Header() {
           onClick={() => setMenuOpen(false)}
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#1A5268] bg-[#123449]">
-            <MapPinned
-              size={25}
-              strokeWidth={1.8}
-              className="text-[#24D9E8]"
-            />
+            <MapPinned size={25} strokeWidth={1.8} className="text-[#24D9E8]" />
           </div>
 
           <span className="text-lg font-bold tracking-tight text-[#E8F3FA]">
@@ -72,11 +69,7 @@ export default function Header() {
                   <motion.span
                     layoutId="header-active-indicator"
                     className="absolute -bottom-0.5 left-0 h-0.5 w-full rounded-full bg-[#24D9E8]"
-                    transition={{
-                      type: "spring",
-                      stiffness: 380,
-                      damping: 30,
-                    }}
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
                   />
                 )}
               </Link>
@@ -87,9 +80,9 @@ export default function Header() {
         {/* Botão desktop */}
         <Link
           href="/mapa"
-          aria-current={pathname.startsWith("/mapa") ? "page" : undefined}
+          aria-current={mapaActive ? "page" : undefined}
           className={`hidden rounded-lg px-5 py-2.5 text-sm font-semibold transition-all duration-200 md:inline-flex ${
-            pathname.startsWith("/mapa")
+            mapaActive
               ? "bg-[#18BDCC] text-[#06111F] ring-2 ring-[#24D9E8]/40"
               : "bg-[#24D9E8] text-[#06111F] hover:bg-[#18BDCC]"
           }`}
@@ -101,7 +94,7 @@ export default function Header() {
         <button
           type="button"
           className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#1A5268] text-[#24D9E8] transition-colors hover:bg-[#123449] md:hidden"
-          onClick={() => setMenuOpen(!menuOpen)}
+          onClick={() => setMenuOpen((open) => !open)}
           aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
           aria-expanded={menuOpen}
           aria-controls="mobile-navigation"
@@ -141,9 +134,9 @@ export default function Header() {
             <Link
               href="/mapa"
               onClick={() => setMenuOpen(false)}
-              aria-current={pathname.startsWith("/mapa") ? "page" : undefined}
+              aria-current={mapaActive ? "page" : undefined}
               className={`mt-2 rounded-lg px-5 py-3 text-center text-sm font-semibold transition-colors ${
-                pathname.startsWith("/mapa")
+                mapaActive
                   ? "bg-[#18BDCC] text-[#06111F] ring-2 ring-[#24D9E8]/40"
                   : "bg-[#24D9E8] text-[#06111F] hover:bg-[#18BDCC]"
               }`}
@@ -154,5 +147,17 @@ export default function Header() {
         </nav>
       )}
     </header>
+  );
+}
+
+export default function Header() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-20 w-full border-b border-[#1A5268] bg-[#06111F]" />
+      }
+    >
+      <HeaderContent />
+    </Suspense>
   );
 }
