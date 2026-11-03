@@ -4,12 +4,13 @@
 
 
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 
 
 import AppShell from "@/components/layout/AppShell";
+import Toast from "@/components/ui/Toast";
 
 import PortugalMapLoader from "@/components/map/PortugalMapLoader";
 
@@ -335,6 +336,9 @@ export default function MapaPage() {
 
   const [applied, setApplied] = useState(false);
 
+  const [showProfileSuccess, setShowProfileSuccess] = useState(false);
+  const closeProfileSuccess = useCallback(() => setShowProfileSuccess(false), []);
+
 
 
   // Município selecionado
@@ -356,6 +360,8 @@ export default function MapaPage() {
   const [rentDataLoading, setRentDataLoading] = useState(true);
 
   const [rentDataError, setRentDataError] = useState(false);
+
+
 
 
 
@@ -670,53 +676,34 @@ export default function MapaPage() {
 
 
   function updateHousehold(value: string) {
-
     setHousehold(value);
-
     setApplied(false);
-
+    setShowProfileSuccess(false);
   }
-
-
 
   function updateIncome(value: string) {
-
     setIncome(value);
-
     setApplied(false);
-
+    setShowProfileSuccess(false);
   }
-
-
 
   function updateTypology(value: string) {
-
     setTypology(value);
-
     setApplied(false);
-
+    setShowProfileSuccess(false);
   }
-
-
 
   function updateDwellingArea(value: string) {
-
     setDwellingArea(value);
-
     setApplied(false);
-
+    setShowProfileSuccess(false);
   }
 
-
-
   function applyProfile() {
-
     if (!profileComplete) return;
 
-
-
     setApplied(true);
-
+    setShowProfileSuccess(true);
   }
 
 
@@ -758,23 +745,15 @@ export default function MapaPage() {
 
 
   function clearFilters() {
-
     setHousehold(null);
-
     setIncome("");
-
     setTypology(null);
-
     setDwellingArea("");
-
     setEffort(35);
-
     setSearch("");
-
     setApplied(false);
-
+    setShowProfileSuccess(false);
     setSelectedMunicipality(null);
-
   }
 
 
@@ -824,8 +803,6 @@ export default function MapaPage() {
               </p>
 
             </div>
-
-
 
             {/* AGREGADO FAMILIAR */}
 
@@ -1376,20 +1353,7 @@ export default function MapaPage() {
               </p>
 
             )}
-
-
-
-            {applied && (
-
-              <p className="mt-2 text-center text-[11px] text-[#48DC98]">
-
-                Perfil aplicado com sucesso.
-
-              </p>
-
-            )}
-
-          </aside>
+</aside>
 
 
 
@@ -2284,6 +2248,14 @@ export default function MapaPage() {
         </div>
 
       </div>
+
+      <Toast
+        open={showProfileSuccess}
+        onClose={closeProfileSuccess}
+        title="Perfil aplicado com sucesso!"
+        description="Os resultados de acessibilidade foram atualizados."
+        duration={3500}
+      />
 
     </AppShell>
 
